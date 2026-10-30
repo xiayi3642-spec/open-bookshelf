@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>我的书架 · Study Shelf</title>
+<style>
+  :root{
+    --paper:#f2ede2; --panel:#fbf8f0; --ink:#2b2a26; --muted:#8b8474;
+    --line:#ddd5c2; --brass:#a8843f; --brass-deep:#8a6a2e; --shadow:0 10px 26px rgba(80,66,38,.14);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+  html,body{background:var(--paper);color:var(--ink);}
+  body{font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei",sans-serif;line-height:1.55;}
+  .serif{font-family:Georgia,"Songti SC","Noto Serif SC","SimSun",serif;}
+
+  /* ---------- 顶栏 ---------- */
+  header{
+    background:linear-gradient(180deg,#f6f1e6,#efe8d9);
+    border-bottom:1px solid var(--line);
+    padding:26px 20px 18px;
+    position:sticky;top:0;z-index:20;
+    backdrop-filter:blur(6px);
+  }
+  .wrap{max-width:1180px;margin:0 auto;}
+  .head-row{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:10px;}
+  .brand h1{font-size:26px;letter-spacing:2px;font-weight:700;}
+  .brand .sub{font-size:12px;color:var(--muted);margin-top:2px;letter-spacing:1px;}
+  .brand .sub b{color:var(--brass-deep);font-weight:600;}
+  .tools{display:flex;gap:10px;align-items:center;flex-wrap:wrap;}
+  .searchbox{position:relative;}
+  .searchbox input{
+    width:210px;padding:9px 12px 9px 32px;border:1px solid var(--line);border-radius:20px;
+    background:#fffdf7;font-size:13px;color:var(--ink);outline:none;transition:border-color .2s;
+  }
+  .searchbox input:focus{border-color:var(--brass);}
+  .searchbox .mag{position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--muted);font-size:13px;}
+  .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px;}
+  .chip{
+    border:1px solid var(--line);background:#fffdf7;color:var(--muted);
+    padding:6px 14px;border-radius:18px;font-size:13px;cursor:pointer;user-select:none;
+    transition:all .18s;
+  }
+  .chip.on{background:var(--brass);border-color:var(--brass);color:#fff;font-weight:600;}
+
+  /* ---------- 书架 ---------- */
+  main{padding:26px 20px 60px;}
+  .section{margin-bottom:40px;}
+  .sec-head{
+    display:flex;align-items:baseline;gap:12px;border-bottom:1px solid var(--line);
+    padding-bottom:8px;margin-bottom:18px;
+  }
+  .sec-head .no{font-size:12px;color:var(--brass);letter-spacing:1px;}
+  .sec-head h2{font-size:19px;letter-spacing:2px;}
+  .sec-head .count{font-size:12px;color:var(--muted);}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(158px,1fr));gap:26px 20px;}
+  .card{position:relative;cursor:pointer;}
+  .cover-wrap{
+    position:relative;border-radius:6px;box-shadow:var(--shadow);
+    background:#fff;padding:7px;border:1px solid #e7e0cf;
+    transition:transform .22s ease, box-shadow .22s ease;
+  }
+  .card:hover .cover-wrap{transform:translateY(-5px) rotate(-.6deg);box-shadow:0 16px 34px rgba(80,66,38,.2);}
+  .cover-wrap img{display:block;width:100%;height:auto;border-radius:3px;background:#efe9db;}
+  .read-badge{
+    position:absolute;right:-6px;top:-8px;background:var(--brass-deep);color:#fff;
+    font-size:10px;padding:3px 8px;border-radius:12px;letter-spacing:.5px;box-shadow:0 2px 6px rgba(0,0,0,.2);
+  }
+  .card .title{font-size:14px;font-weight:600;margin-top:10px;line-height:1.4;}
+  .card .meta{font-size:11.5px;color:var(--muted);margin-top:3px;display:flex;justify-content:space-between;flex-wrap:wrap;gap:2px;}
+  .card .dl{
+    position:absolute;right:14px;top:14px;z-index:2;
+    background:rgba(43,42,38,.72);color:#fff;border:none;border-radius:6px;
+    font-size:11px;padding:4px 9px;cursor:pointer;opacity:0;transition:opacity .2s;text-decoration:none;
+  }
+  .card:hover .dl{opacity:1;}
+  .card .dl:hover{background:var(--brass-deep);}
+  .empty{grid-column:1/-1;text-align:center;color:var(--muted);padding:50px 0;font-size:14px;}
+
+  /* ---------- 阅读器 ---------- */
+  .reader{
+    position:fixed;inset:0;z-index:100;background:rgba(28,26,22,.88);
+    display:none;flex-direction:column;backdrop-filter:blur(3px);
+  }
+  .reader.open{display:flex;}
+  .r-toolbar{
+    background:#1e1c18;color:#eee;display:flex;align-items:center;gap:8px;
+    padding:8px 12px;flex-wrap:wrap;flex-shrink:0;
+  }
+  .r-title{font-size:13px;color:#d8d2c4;margin-right:auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:34%;}
+  .r-btn{
+    background:transparent;border:1px solid #4a453c;color:#e8e2d4;min-width:38px;height:34px;
+    border-radius:7px;font-size:13px;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:4px;
+    padding:0 10px;transition:background .15s;
+  }
+  .r-btn:hover{background:#33302a;}
+  .r-btn.primary{background:var(--brass);border-color:var(--brass);color:#fff;font-weight:600;}
+  .r-btn:disabled{opacity:.35;cursor:not-allowed;}
+  .r-page{display:inline-flex;align-items:center;gap:4px;font-size:12.5px;color:#cfc9ba;}
+  .r-page input{width:52px;background:#2b2924;border:1px solid #4a453c;color:#eee;border-radius:5px;padding:5px 6px;font-size:12.5px;text-align:center;outline:none;}
+  .r-progress{height:3px;background:#3a362f;flex-shrink:0;}
+  .r-progress i{display:block;height:100%;background:var(--brass);width:0;transition:width .25s;}
+  .r-canvas-wrap{flex:1;overflow:auto;display:flex;justify-content:center;padding:14px;background:#26231e;position:relative;}
+  .r-canvas-wrap canvas{box-shadow:0 6px 30px rgba(0,0,0,.45);max-width:100%;height:auto;background:#fff;}
+  .r-loading{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#b8b2a4;font-size:13px;letter-spacing:1px;}
+  .r-hint{position:fixed;bottom:12px;left:50%;transform:translateX(-50%);background:rgba(30,28,24,.9);color:#cfc9ba;font-size:11px;padding:5px 14px;border-radius:14px;z-index:101;opacity:0;transition:opacity .3s;pointer-events:none;}
+
+  /* ---------- 页脚 ---------- */
+  footer{border-top:1px solid var(--line);padding:22px 20px 40px;color:var(--muted);font-size:12.5px;line-height:1.9;}
+  footer .wrap{display:flex;justify-content:space-between;gap:16px;flex-wrap:wrap;}
+  footer b{color:var(--brass-deep);}
+
+  @media (max-width:640px){
+    .grid{grid-template-columns:repeat(auto-fill,minmax(128px,1fr));gap:22px 14px;}
+    .searchbox input{width:150px;}
+    header{padding:18px 14px 14px;}
+    main{padding:20px 14px 50px;}
+    .brand h1{font-size:21px;}
+    .r-title{max-width:40%;}
+    .card .dl{opacity:1;font-size:10px;padding:3px 7px;}
+    .r-btn{padding:0 8px;min-width:34px;}
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <div class="head-row">
+      <div class="brand">
+        <h1 class="serif">我的书架</h1>
+        <div class="sub">学习卡片 · 精选最新版 · 共 <b id="totalCount">0</b> 册</div>
+      </div>
+      <div class="tools">
+        <div class="searchbox">
+          <span class="mag">⌕</span>
+          <input id="searchInput" type="search" placeholder="搜索书名 / 课程 / 标签…" autocomplete="off">
+        </div>
+      </div>
+    </div>
+    <div class="chips" id="chips">
+      <div class="chip on" data-course="全部">全部</div>
+    </div>
+  </div>
+</header>
+
+<main class="wrap" id="shelf"></main>
+
+<footer>
+  <div class="wrap">
+    <div>维护规则：每讲只保留最新版（2026-10-30 整理）。<br>以后说<b>「放进书架」</b>，新卡片 PDF 会放进 <b>books/</b> 并更新索引，刷新页面即可看到。</div>
+    <div>书架页：<b>bookshelf/index.html</b> · 数据索引：<b>index.json</b> · 阅读器：PDF.js（本地离线）</div>
+  </div>
+</footer>
+
+<!-- 阅读器 -->
+<div class="reader" id="reader">
+  <div class="r-toolbar">
+    <button class="r-btn" id="btnClose" title="关闭 (Esc)">✕</button>
+    <button class="r-btn" id="btnPrev" title="上一页 (←)">‹</button>
+    <span class="r-page">第 <input id="pageInput" type="number" min="1" value="1"> / <span id="pageTotal">–</span> 页</span>
+    <button class="r-btn" id="btnNext" title="下一页 (→)">›</button>
+    <button class="r-btn" id="btnZoomOut" title="缩小">−</button>
+    <button class="r-btn" id="btnZoomIn" title="放大">＋</button>
+    <button class="r-btn" id="btnFit" title="适应宽度">宽</button>
+    <a class="r-btn primary" id="btnDownload" download>下载 PDF</a>
+    <span class="r-title" id="readerTitle"></span>
+  </div>
+  <div class="r-progress"><i id="progressBar"></i></div>
+  <div class="r-canvas-wrap" id="canvasWrap">
+    <div class="r-loading" id="rLoading">正在翻书…</div>
+    <canvas id="pageCanvas"></canvas>
+  </div>
+  <div class="r-hint" id="rHint"></div>
+</div>
+
+<script src="vendor/pdfjs/pdf.min.js"></script>
+<script>
+(function(){
+  'use strict';
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'vendor/pdfjs/pdf.worker.min.js';
+
+  var COURSE_ORDER = ['工程管理导论','领导力与沟通','运营管理','设计工作'];
+  var BOOKS = [];
+  var state = { course:'全部', q:'', pdf:null, page:1, total:0, scale:1, fit:true, id:null };
+
+  var $ = function(id){ return document.getElementById(id); };
+  var shelfEl = $('shelf'), chipsEl = $('chips'), readerEl = $('reader'),
+      canvas = $('pageCanvas'), ctx = canvas.getContext('2d'),
+      canvasWrap = $('canvasWrap'),
+      loadingEl = $('rLoading'), hintTimer = null;
+
+  /* ---------- 数据与书架渲染 ---------- */
+  function loadShelf(){
+    fetch('index.json').then(function(r){ return r.json(); }).then(function(books){
+      BOOKS = books;
+      $('totalCount').textContent = books.length;
+      renderChips();
+      renderShelf();
+      var m = location.search.match(/[?&]open=([^&]+)/);
+      if(m){ openReader(decodeURIComponent(m[1])); }
+    }).catch(function(e){
+      shelfEl.innerHTML = '<div class="empty">无法读取 index.json，请确认书架目录完整。</div>';
+    });
+  }
+
+  function renderChips(){
+    var seen = {};
+    BOOKS.forEach(function(b){ seen[b.course] = 1; });
+    COURSE_ORDER.forEach(function(c){ if(seen[c]){ addChip(c); } });
+    function addChip(c){
+      if(!seen[c]) return;
+      var d = document.createElement('div');
+      d.className = 'chip' + (state.course===c ? ' on' : '');
+      d.textContent = c;
+      d.setAttribute('data-course', c);
+      d.onclick = function(){ setCourse(c); };
+      chipsEl.appendChild(d);
+    }
+  }
+
+  function setCourse(c){
+    state.course = c;
+    var chips = chipsEl.querySelectorAll('.chip');
+    for(var i=0;i<chips.length;i++){ chips[i].className = 'chip' + (chips[i].getAttribute('data-course')===c ? ' on' : ''); }
+    renderShelf();
+  }
+
+  function filtered(){
+    var q = state.q.trim().toLowerCase();
+    return BOOKS.filter(function(b){
+      if(state.course!=='全部' && b.course!==state.course) return false;
+      if(!q) return true;
+      var hay = (b.title+' '+b.course+' '+b.desc).toLowerCase();
+      return hay.indexOf(q) >= 0;
+    });
+  }
+
+  function groupByCourse(list){
+    var groups = [], map = {};
+    list.forEach(function(b){
+      var c = b.course || '其他';
+      if(!map[c]){ map[c] = []; groups.push({course:c, books:map[c]}); }
+      map[c].push(b);
+    });
+    groups.sort(function(a,b){
+      var ia = COURSE_ORDER.indexOf(a.course), ib = COURSE_ORDER.indexOf(b.course);
+      ia = ia<0 ? 99 : ia; ib = ib<0 ? 99 : ib;
+      return ia - ib;
+    });
+    return groups;
+  }
+
+  function renderShelf(){
+    var list = filtered();
+    if(!list.length){ shelfEl.innerHTML = '<div class="empty">没有匹配的书目。</div>'; return; }
+    var groups = groupByCourse(list), html = '';
+    var gi = 1;
+    groups.forEach(function(g){
+      html += '<section class="section">'
+            + '<div class="sec-head"><span class="no">0' + gi + '</span><h2 class="serif">' + esc(g.course) + '</h2><span class="count">' + g.books.length + ' 册</span></div>'
+            + '<div class="grid">';
+      g.books.forEach(function(b){ html += cardHTML(b); });
+      html += '</div></section>';
+      gi++;
+    });
+    shelfEl.innerHTML = html;
+  }
+
+  function cardHTML(b){
+    var pos = getPos(b.id);
+    var badge = pos && pos>1 ? '<span class="read-badge">读到 ' + pos + ' 页</span>' : '';
+    var date = (b.date||'').slice(2).replace(/-/g,'.');
+    if(b.link){
+      return '<div class="card" data-id="' + b.id + '" data-link="' + esc(b.link) + '">'
+        + '<a class="dl" href="' + esc(b.link) + '" target="_blank" rel="noopener" title="打开飞书文档">打开</a>'
+        + '<div class="cover-wrap">'
+        +   '<img src="covers/' + enc(b.cover) + '" alt="' + esc(b.title) + '" loading="lazy" draggable="false">'
+        + '</div>'
+        + '<div class="title">' + esc(b.title) + '</div>'
+        + '<div class="meta"><span>' + esc(b.desc||'') + '</span><span>飞书在线 · ' + date + '</span></div>'
+        + '</div>';
+    }
+    return '<div class="card" data-id="' + b.id + '">'
+      + '<a class="dl" href="books/' + enc(b.file) + '" download title="下载 PDF">下载</a>'
+      + '<div class="cover-wrap">' + badge
+      +   '<img src="covers/' + enc(b.cover) + '" alt="' + esc(b.title) + '" loading="lazy" draggable="false">'
+      + '</div>'
+      + '<div class="title">' + esc(b.title) + '</div>'
+      + '<div class="meta"><span>' + esc(b.desc||'') + '</span><span>' + b.pages + ' 页 · ' + date + '</span></div>'
+      + '</div>';
+  }
+
+  function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(m){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]; }); }
+  function enc(s){ return encodeURIComponent(s); }
+
+  /* ---------- 事件：点击卡片 / 搜索 / 筛选 ---------- */
+  shelfEl.addEventListener('click', function(e){
+    var dl = e.target.closest('.dl');
+    if(dl){ e.stopPropagation(); return; }
+    var card = e.target.closest('.card');
+    if(card){
+      var link = card.getAttribute('data-link');
+      if(link){ window.open(link, '_blank', 'noopener'); return; }
+      openReader(card.getAttribute('data-id'));
+    }
+  });
+
+  $('searchInput').addEventListener('input', function(){
+    state.q = this.value;
+    renderShelf();
+  });
+
+  /* ---------- 阅读器 ---------- */
+  function openReader(id){
+    var b = getBook(id); if(!b) return;
+    state.id = id; state.pdf = null; state.page = getPos(id) || 1; state.scale = 1; state.fit = true;
+    $('readerTitle').textContent = b.title;
+    $('btnDownload').href = 'books/' + enc(b.file);
+    $('pageTotal').textContent = b.pages;
+    readerEl.classList.add('open');
+    document.body.style.overflow = 'hidden';
+    loadingEl.style.display = 'flex';
+    $('pageCanvas').style.display = 'none';
+    pdfjsLib.getDocument({ url: 'books/' + enc(b.file) }).promise.then(function(doc){
+      state.pdf = doc; state.total = doc.numPages;
+      $('pageTotal').textContent = doc.numPages;
+      if(state.page > doc.numPages) state.page = doc.numPages;
+      renderPage();
+    }).catch(function(err){
+      loadingEl.textContent = '打开失败：' + (err && err.message ? err.message : err);
+    });
+  }
+
+  function closeReader(){
+    readerEl.classList.remove('open');
+    document.body.style.overflow = '';
+    if(state.pdf){ state.pdf.destroy(); state.pdf = null; }
+  }
+
+  function renderPage(){
+    if(!state.pdf) return;
+    var p = state.page, dpr = Math.max(1, window.devicePixelRatio || 1);
+    state.pdf.getPage(p).then(function(page){
+      var wrapW = canvasWrap.clientWidth - 28, wrapH = canvasWrap.clientHeight - 28;
+      var base = page.getViewport({ scale: 1 });
+      var s;
+      if(state.fit){
+        s = Math.min(wrapW / base.width, wrapH / base.height, 2.2);
+      } else {
+        s = state.scale;
+      }
+      var vp = page.getViewport({ scale: s });
+      canvas.width = Math.floor(vp.width * dpr);
+      canvas.height = Math.floor(vp.height * dpr);
+      canvas.style.width = vp.width + 'px';
+      canvas.style.height = vp.height + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, vp.width, vp.height);
+      page.render({ canvasContext: ctx, viewport: vp });
+      canvas.style.display = 'block';
+      loadingEl.style.display = 'none';
+      canvasWrap.scrollTop = 0; canvasWrap.scrollLeft = 0;
+      updateReaderUI();
+    });
+  }
+
+  function updateReaderUI(){
+    $('pageInput').value = state.page;
+    var t = state.total || state.pdf.numPages || 1;
+    $('progressBar').style.width = Math.round(state.page / t * 100) + '%';
+    $('btnPrev').disabled = state.page <= 1;
+    $('btnNext').disabled = state.page >= t;
+    if(state.id) savePos(state.id, state.page);
+    renderShelf(); // 更新"读到第N页"角标
+  }
+
+  function goPage(n){
+    if(!state.pdf) return;
+    n = Math.max(1, Math.min(state.total, n));
+    if(n === state.page) return;
+    state.page = n;
+    renderPage();
+  }
+
+  function zoomBy(d){
+    state.fit = false; state.scale = Math.max(0.4, Math.min(3.5, state.scale + d));
+    renderPage();
+  }
+
+  $('btnClose').onclick = closeReader;
+  $('btnPrev').onclick = function(){ goPage(state.page - 1); };
+  $('btnNext').onclick = function(){ goPage(state.page + 1); };
+  $('btnZoomIn').onclick = function(){ zoomBy(0.25); };
+  $('btnZoomOut').onclick = function(){ zoomBy(-0.25); };
+  $('btnFit').onclick = function(){ state.fit = true; renderPage(); };
+  $('pageInput').addEventListener('change', function(){ goPage(parseInt(this.value, 10) || 1); });
+
+  document.addEventListener('keydown', function(e){
+    if(!readerEl.classList.contains('open')) return;
+    if(e.key === 'Escape') closeReader();
+    else if(e.key === 'ArrowLeft') goPage(state.page - 1);
+    else if(e.key === 'ArrowRight') goPage(state.page + 1);
+  });
+
+  /* ---------- 阅读位置记忆 ---------- */
+  function savePos(id, page){ try{ localStorage.setItem('shelf_pos_' + id, page); }catch(e){} }
+  function getPos(id){ try{ return parseInt(localStorage.getItem('shelf_pos_' + id), 10) || 0; }catch(e){ return 0; } }
+
+  function getBook(id){
+    for(var i=0;i<BOOKS.length;i++){ if(BOOKS[i].id === id) return BOOKS[i]; }
+    return null;
+  }
+
+  loadShelf();
+})();
+</script>
+</body>
+</html>
