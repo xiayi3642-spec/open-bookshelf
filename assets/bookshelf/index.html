@@ -292,29 +292,20 @@
     if(hiddenCount()){
       delBar = '<div class="del-bar"><span>本设备已删除 <b>' + hiddenCount() + '</b> 册（仅本设备隐藏，换设备仍可见；需要永久删除请告知豆包）</span><button id="btnRestoreAll">恢复全部</button></div>';
     }
-    // 全部视图：按日期倒序单网格（最新在前）
     var html = delBar;
     if(!list.length){
       shelfEl.innerHTML = html + '<div class="empty">已全部删除。</div>'; return;
     }
-    if(state.course === '全部'){
+    // 外面按课程分组（COURSE_ORDER），组内保持 filtered() 的日期倒序（最新在前）
+    var groups = groupByCourse(list), gi = 1;
+    groups.forEach(function(g){
       html += '<section class="section">'
-            + '<div class="sec-head"><span class="no">01</span><h2 class="serif">全部书目 · 最新在前</h2><span class="count">' + list.length + ' 册</span></div>'
+            + '<div class="sec-head"><span class="no">0' + gi + '</span><h2 class="serif">' + esc(g.course) + '</h2><span class="count">' + g.books.length + ' 册</span></div>'
             + '<div class="grid">';
-      list.forEach(function(b){ html += cardHTML(b); });
+      g.books.forEach(function(b){ html += cardHTML(b); });
       html += '</div></section>';
-    } else {
-      // 筛选视图：保留分组，组内亦按日期倒序
-      var groups = groupByCourse(list), gi = 1;
-      groups.forEach(function(g){
-        html += '<section class="section">'
-              + '<div class="sec-head"><span class="no">0' + gi + '</span><h2 class="serif">' + esc(g.course) + '</h2><span class="count">' + g.books.length + ' 册</span></div>'
-              + '<div class="grid">';
-        g.books.forEach(function(b){ html += cardHTML(b); });
-        html += '</div></section>';
-        gi++;
-      });
-    }
+      gi++;
+    });
     shelfEl.innerHTML = html;
     var rb = $('btnRestoreAll');
     if(rb) rb.onclick = function(){
