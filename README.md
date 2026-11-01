@@ -118,6 +118,11 @@ curl -sf https://xiayi3642-spec.github.io/bookshelf/index.json | head
 - 用户明确指定保留 / 删除时以用户为准；删除前先确认。
 - 云沙箱可能回滚工作区（.git 丢失、文件回退旧版），**以 GitHub 线上为权威**，本地异常时重新 clone 恢复。
 
+## 8.1 页面排序与删除功能（2026-11-01 起）
+
+- **排序**：书架默认按 `date` 字段**倒序**（最新在前）；筛选某课程时组内同样倒序。排序在 `index.html` 的 `filtered()` 内实现，无需改 index.json 顺序。
+- **删除（页面按钮）**：每张卡片左上角有「删除」按钮 → 确认后写入 `localStorage('shelf_hidden')` 并隐藏该卡，顶部出现「已删除 N 册 · 恢复全部」提示条。**注意：这是本设备前端隐藏，不修改 index.json / 不删文件**——换设备或清缓存会重新出现；需要真正删除（从线上移除）必须改 index.json 并删对应文件后推送 bookshelf 仓库。
+
 ## 9. 封面模板参考
 
 封面图可复用另一个技能仓库 `xiayi3642-spec/editorial-note-cards`（note card 卡片技能）的 17 种风格模板（春和景明、雪山、奶油绿油画、大阪霓虹、鎏金漩涡、冷暖交融等），或直接使用其 `scripts/html2png.mjs` 渲染 1080×1440 封面。

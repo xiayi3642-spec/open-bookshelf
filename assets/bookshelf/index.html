@@ -75,6 +75,23 @@
   }
   .card:hover .dl{opacity:1;}
   .card .dl:hover{background:var(--brass-deep);}
+  .card .del{
+    position:absolute;left:14px;top:14px;z-index:2;
+    background:rgba(43,42,38,.72);color:#fff;border:none;border-radius:6px;
+    font-size:11px;padding:4px 9px;cursor:pointer;opacity:0;transition:opacity .2s;
+  }
+  .card:hover .del{opacity:1;}
+  .card .del:hover{background:#b3452e;}
+  .del-bar{
+    display:flex;align-items:center;justify-content:flex-end;gap:12px;flex-wrap:wrap;
+    margin:0 0 20px;padding:10px 14px;background:#fbf7ec;border:1px dashed #d8c9a3;border-radius:10px;
+    font-size:12.5px;color:var(--muted);
+  }
+  .del-bar button{
+    background:transparent;border:1px solid var(--brass);color:var(--brass-deep);
+    border-radius:6px;font-size:12px;padding:4px 12px;cursor:pointer;
+  }
+  .del-bar button:hover{background:var(--brass);color:#fff;}
   .empty{grid-column:1/-1;text-align:center;color:var(--muted);padding:50px 0;font-size:14px;}
 
   /* ---------- 阅读器 ---------- */
@@ -148,7 +165,7 @@
 
 <footer>
   <div class="wrap">
-    <div>维护规则：每讲只保留最新版（2026-10-30 整理）。<br>以后说<b>「放进书架」</b>，新卡片 PDF 会放进 <b>books/</b> 并更新索引，刷新页面即可看到。</div>
+    <div>维护规则：每讲只保留最新版（2026-10-30 整理）。<br>以后说<b>「放进书架」</b>，新卡片 PDF 会放进 <b>books/</b> 并更新索引，刷新页面即可看到；卡片上的<b>「删除」</b>按钮仅在本设备隐藏（换设备仍可见，永久删除需联系豆包）。</div>
     <div>书架页：<b>bookshelf/index.html</b> · 数据索引：<b>index.json</b> · 阅读器：PDF.js（本地离线）</div>
   </div>
 </footer>
@@ -183,6 +200,7 @@
   var COURSE_ORDER = ['工程管理导论','领导力与沟通','运营管理','设计工作'];
   var BOOKS = [];
   var state = { course:'全部', q:'', pdf:null, page:1, total:0, scale:1, fit:true, id:null };
+  var HIDDEN = {};  // 被删除的书籍 id → 1（localStorage 持久化，本设备生效）
 
   var $ = function(id){ return document.getElementById(id); };
   var shelfEl = $('shelf'), chipsEl = $('chips'), readerEl = $('reader'),
@@ -194,6 +212,7 @@
   function loadShelf(){
     fetch('index.json').then(function(r){ return r.json(); }).then(function(books){
       BOOKS = books;
+      loadHidden();
       $('totalCount').textContent = books.length;
       renderChips();
       renderShelf();
@@ -203,6 +222,13 @@
       shelfEl.innerHTML = '<div class="empty">无法读取 index.json，请确认书架目录完整。</div>';
     });
   }
+
+  /* 删除记录：localStorage 持久化，key=shelf_hidden，JSON 数组 */
+  function loadHidden(){
+    try{ HIDDEN = JSON.parse(localStorage.getItem('shelf_hidden') || '{}'); }catch(e){ HIDDEN = {}; }
+  }
+  function saveHidden(){ try{ localStorage.setItem('shelf_hidden', JSON.stringify(HIDDEN)); }catch(e){} }
+  function hiddenCount(){ return Object.keys(HIDDEN).length; }
 
   function renderChips(){
     var seen = {};
@@ -229,10 +255,15 @@
   function filtered(){
     var q = state.q.trim().toLowerCase();
     return BOOKS.filter(function(b){
+      if(HIDDEN[b.id]) return false;                 // 已删除的不显示
       if(state.course!=='全部' && b.course!==state.course) return false;
       if(!q) return true;
       var hay = (b.title+' '+b.course+' '+b.desc).toLowerCase();
       return hay.indexOf(q) >= 0;
+    }).sort(function(a,b){                            // 按日期倒序：最新在前
+      var da = (a.date||''), db = (b.date||'');
+      if(da !== db) return da < db ? 1 : -1;
+      return parseInt(b.id,10) - parseInt(a.id,10);   // 同日按 id 倒序
     });
   }
 
@@ -253,26 +284,53 @@
 
   function renderShelf(){
     var list = filtered();
-    if(!list.length){ shelfEl.innerHTML = '<div class="empty">没有匹配的书目。</div>'; return; }
-    var groups = groupByCourse(list), html = '';
-    var gi = 1;
-    groups.forEach(function(g){
+    if(!list.length && !hiddenCount()){
+      shelfEl.innerHTML = '<div class="empty">没有匹配的书目。</div>'; return;
+    }
+    // 已删除提示条（可恢复）
+    var delBar = '';
+    if(hiddenCount()){
+      delBar = '<div class="del-bar"><span>本设备已删除 <b>' + hiddenCount() + '</b> 册（仅本设备隐藏，换设备仍可见；需要永久删除请告知豆包）</span><button id="btnRestoreAll">恢复全部</button></div>';
+    }
+    // 全部视图：按日期倒序单网格（最新在前）
+    var html = delBar;
+    if(!list.length){
+      shelfEl.innerHTML = html + '<div class="empty">已全部删除。</div>'; return;
+    }
+    if(state.course === '全部'){
       html += '<section class="section">'
-            + '<div class="sec-head"><span class="no">0' + gi + '</span><h2 class="serif">' + esc(g.course) + '</h2><span class="count">' + g.books.length + ' 册</span></div>'
+            + '<div class="sec-head"><span class="no">01</span><h2 class="serif">全部书目 · 最新在前</h2><span class="count">' + list.length + ' 册</span></div>'
             + '<div class="grid">';
-      g.books.forEach(function(b){ html += cardHTML(b); });
+      list.forEach(function(b){ html += cardHTML(b); });
       html += '</div></section>';
-      gi++;
-    });
+    } else {
+      // 筛选视图：保留分组，组内亦按日期倒序
+      var groups = groupByCourse(list), gi = 1;
+      groups.forEach(function(g){
+        html += '<section class="section">'
+              + '<div class="sec-head"><span class="no">0' + gi + '</span><h2 class="serif">' + esc(g.course) + '</h2><span class="count">' + g.books.length + ' 册</span></div>'
+              + '<div class="grid">';
+        g.books.forEach(function(b){ html += cardHTML(b); });
+        html += '</div></section>';
+        gi++;
+      });
+    }
     shelfEl.innerHTML = html;
+    var rb = $('btnRestoreAll');
+    if(rb) rb.onclick = function(){
+      if(!confirm('恢复全部已删除的书籍？')) return;
+      HIDDEN = {}; saveHidden(); renderShelf();
+    };
   }
 
   function cardHTML(b){
     var pos = getPos(b.id);
     var badge = pos && pos>1 ? '<span class="read-badge">读到 ' + pos + ' 页</span>' : '';
     var date = (b.date||'').slice(2).replace(/-/g,'.');
+    var delBtn = '<button class="del" data-del="' + b.id + '" title="删除此册（本设备隐藏）">删除</button>';
     if(b.link){
       return '<div class="card" data-id="' + b.id + '" data-link="' + esc(b.link) + '">'
+        + delBtn
         + '<a class="dl" href="' + esc(b.link) + '" target="_blank" rel="noopener" title="打开飞书文档">打开</a>'
         + '<div class="cover-wrap">'
         +   '<img src="covers/' + enc(b.cover) + '" alt="' + esc(b.title) + '" loading="lazy" draggable="false">'
@@ -282,6 +340,7 @@
         + '</div>';
     }
     return '<div class="card" data-id="' + b.id + '">'
+      + delBtn
       + '<a class="dl" href="books/' + enc(b.file) + '" download title="下载 PDF">下载</a>'
       + '<div class="cover-wrap">' + badge
       +   '<img src="covers/' + enc(b.cover) + '" alt="' + esc(b.title) + '" loading="lazy" draggable="false">'
@@ -294,8 +353,18 @@
   function esc(s){ return String(s==null?'':s).replace(/[&<>"']/g, function(m){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]; }); }
   function enc(s){ return encodeURIComponent(s); }
 
-  /* ---------- 事件：点击卡片 / 搜索 / 筛选 ---------- */
+  /* ---------- 事件：点击卡片 / 删除 / 搜索 / 筛选 ---------- */
   shelfEl.addEventListener('click', function(e){
+    var del = e.target.closest('.del');
+    if(del){
+      e.stopPropagation();
+      var id = del.getAttribute('data-del');
+      var b = getBook(id);
+      if(!confirm('确定删除《' + (b ? b.title : id) + '》？\n（仅本设备隐藏，可随时恢复）')) return;
+      HIDDEN[id] = 1; saveHidden();
+      renderShelf();
+      return;
+    }
     var dl = e.target.closest('.dl');
     if(dl){ e.stopPropagation(); return; }
     var card = e.target.closest('.card');
