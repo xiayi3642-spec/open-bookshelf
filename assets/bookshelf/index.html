@@ -87,11 +87,20 @@
     margin:0 0 20px;padding:10px 14px;background:#fbf7ec;border:1px dashed #d8c9a3;border-radius:10px;
     font-size:12.5px;color:var(--muted);
   }
+  .del-bar .del-info{display:flex;align-items:center;gap:12px;flex-wrap:wrap;flex:1;min-width:200px;}
+  .del-bar .del-list{margin-top:10px;width:100%;border-top:1px dashed #e3d5b0;padding-top:10px;}
+  .del-bar .del-list .item{display:flex;align-items:center;gap:8px;padding:4px 0;font-size:12px;flex-wrap:wrap;}
+  .del-bar .del-list .item .t{font-weight:600;color:#5a513c;}
+  .del-bar .del-list .item .d{color:var(--muted);font-size:11px;}
+  .del-bar .del-list .item button{margin-left:auto;background:transparent;border:1px solid #d8c9a3;color:var(--brass-deep);border-radius:5px;font-size:11px;padding:2px 8px;cursor:pointer;}
+  .del-bar .del-list .item button:hover{background:#f2ead6;}
   .del-bar button{
     background:transparent;border:1px solid var(--brass);color:var(--brass-deep);
     border-radius:6px;font-size:12px;padding:4px 12px;cursor:pointer;
   }
   .del-bar button:hover{background:var(--brass);color:#fff;}
+  .del-bar button.primary{background:var(--brass);color:#fff;font-weight:600;border-color:var(--brass);}
+  .del-bar button.primary:hover{background:var(--brass-deep);}
   .empty{grid-column:1/-1;text-align:center;color:var(--muted);padding:50px 0;font-size:14px;}
 
   /* ---------- 阅读器 ---------- */
@@ -287,10 +296,23 @@
     if(!list.length && !hiddenCount()){
       shelfEl.innerHTML = '<div class="empty">没有匹配的书目。</div>'; return;
     }
-    // 已删除提示条（可恢复）
+    // 已删除提示条（可恢复 + 导出清单做彻底删除）
     var delBar = '';
     if(hiddenCount()){
-      delBar = '<div class="del-bar"><span>本设备已删除 <b>' + hiddenCount() + '</b> 册（仅本设备隐藏，换设备仍可见；需要永久删除请告知豆包）</span><button id="btnRestoreAll">恢复全部</button></div>';
+      var items = Object.keys(HIDDEN).map(function(id){
+        var b = getBook(id);
+        return b ? b : {id:id, title:'（已不在索引中）', course:'', date:''};
+      });
+      var listHtml = items.map(function(b){
+        return '<div class="item"><span class="t">' + esc(b.title) + '</span><span class="d">' + esc(b.course||'') + ' · ' + (b.date||'') + '</span>'
+             + '<button data-undelete="' + esc(b.id) + '">恢复</button></div>';
+      }).join('');
+      delBar = '<div class="del-bar">'
+        + '<div class="del-info"><span>本设备已删除 <b>' + hiddenCount() + '</b> 册（仅本设备隐藏，换设备仍可见）</span>'
+        + '<button id="btnExportDel" title="下载待删清单，发给我即可永久删除">导出待删清单</button>'
+        + '<button id="btnRestoreAll">全部恢复</button></div>'
+        + '<div class="del-list">' + listHtml + '</div>'
+        + '</div>';
     }
     var html = delBar;
     if(!list.length){
@@ -312,6 +334,29 @@
       if(!confirm('恢复全部已删除的书籍？')) return;
       HIDDEN = {}; saveHidden(); renderShelf();
     };
+    var eb = $('btnExportDel');
+    if(eb) eb.onclick = exportDeleteList;
+    shelfEl.querySelectorAll('[data-undelete]').forEach(function(btn){
+      btn.onclick = function(){
+        delete HIDDEN[btn.getAttribute('data-undelete')];
+        saveHidden(); renderShelf();
+      };
+    });
+  }
+
+  /* 导出待删清单：生成 JSON 文件供下载，发给我做彻底删除 */
+  function exportDeleteList(){
+    var items = Object.keys(HIDDEN).map(function(id){
+      var b = getBook(id);
+      if(b) return {id:b.id, title:b.title, course:b.course||'', date:b.date||'', link:b.link||'', file:b.file||''};
+      return {id:id, title:'（已不在索引中）', course:'', date:'', link:'', file:''};
+    });
+    var blob = new Blob([JSON.stringify({type:'bookshelf-delete-request', generated:new Date().toISOString().slice(0,10), books:items}, null, 2)], {type:'application/json'});
+    var a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = 'bookshelf-delete-request.json';
+    document.body.appendChild(a); a.click();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 200);
   }
 
   function cardHTML(b){
