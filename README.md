@@ -120,8 +120,9 @@ curl -sf https://xiayi3642-spec.github.io/bookshelf/index.json | head
 
 ## 8.1 页面排序与删除功能（2026-11-01 起）
 
-- **排序**：书架默认按 `date` 字段**倒序**（最新在前）；筛选某课程时组内同样倒序。排序在 `index.html` 的 `filtered()` 内实现，无需改 index.json 顺序。
-- **删除（页面按钮）**：每张卡片左上角有「删除」按钮 → 确认后写入 `localStorage('shelf_hidden')` 并隐藏该卡，顶部出现「已删除 N 册 · 恢复全部」提示条。**注意：这是本设备前端隐藏，不修改 index.json / 不删文件**——换设备或清缓存会重新出现；需要真正删除（从线上移除）必须改 index.json 并删对应文件后推送 bookshelf 仓库。
+- **排序**：书架**外部按课程分组**（`COURSE_ORDER` 顺序），**组内按 `date` 倒序**（最新在前）。排序在 `index.html` 的 `filtered()` + `groupByCourse()` 内实现，无需改 index.json 顺序。
+- **删除（页面按钮）**：每张卡片左上角有「删除」按钮 → 确认后写入 `localStorage('shelf_hidden')` 并隐藏该卡，顶部出现「删除管理」面板：列出已删每册明细（标题/课程/日期）+ 单条恢复 + 全部恢复。**注意：这是本设备前端隐藏，不修改 index.json / 不删文件**——换设备或清缓存会重新出现。
+- **彻底删除（导出清单）**：删除管理面板内有「导出待删清单」按钮 → 下载 `bookshelf-delete-request.json`（含 id/标题/课程/日期/link 或 file）。**把该文件发给豆包**，豆包按清单改 index.json 删条目、删除对应文件并推送 bookshelf 仓库，即可从线上彻底移除；同时应清掉用户设备上的 `shelf_hidden`（或用户点「全部恢复」）。
 
 ## 9. 封面模板参考
 
